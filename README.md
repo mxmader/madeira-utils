@@ -17,3 +17,9 @@ package_layer.sh <package name> <version>
 ```
 create_layer.sh
 ```
+* Sourceable function library with general-purpose app workflow utilities
+```
+shell_funcs.src
+```
+    Functions:
+    * `madeira_run_dev <app>` - opens XFCE4 terminal with 2 tabs - each for API and UI container runtime + logging
