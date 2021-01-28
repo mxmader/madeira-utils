@@ -1,7 +1,7 @@
 import logging
 import sys
 
-__version__ = '1.0'
+__version__ = '1.0.1'
 
 
 def get_logger(level=logging.INFO, use_stdout=True, logger_name='madeira_utils_logger'):

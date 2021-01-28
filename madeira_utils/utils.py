@@ -1,14 +1,12 @@
 import base64
 import hashlib
 import io
-import json
 import os
-import time
 import zipfile
 
-import dns.resolver
 import madeira_utils
 import requests
+import yaml
 
 
 class Utils(object):
@@ -49,17 +47,6 @@ class Utils(object):
         r.raise_for_status()
         z = zipfile.ZipFile(io.BytesIO(r.content))
         return self.get_base64_sum_of_data(z.read(file_name_in_zip), hash_type=hash_type)
-
-    def get_godaddy_dns_value(self, name, record_type):
-        config = json.load(open(os.path.expanduser("~/.godaddy-dns.json"), 'r'))
-        name = name.replace(f".{config['domain']}", '')
-        self._logger.info("Getting value of %s %s via GoDaddy DNS", record_type, name)
-        r = requests.get(
-            f"https://api.godaddy.com/v1/domains/{config['domain']}/records/{record_type}/{name}",
-            headers={'Authorization': f"sso-key {config['api_key']}:{config['api_secret']}"}
-        )
-        result = r.json()
-        return result[0]['data']
 
     @staticmethod
     def get_hash_object(hash_type):
@@ -145,36 +132,7 @@ class Utils(object):
         in_memory_zip.seek(0)
         return in_memory_zip
 
-    def update_godaddy_dns_record(self, name, value, record_type, ttl=600):
-        config = json.load(open(os.path.expanduser("~/.godaddy-dns.json"), 'r'))
-        name = name.replace(f".{config['domain']}", '')
-        data = [{
-            'name': name,
-            'type': record_type,
-            'data': value,
-            'ttl': ttl
-        }]
-        self._logger.info("Setting %s %s to %s in GoDaddy DNS", record_type, name, value)
-        r = requests.put(
-            f"https://api.godaddy.com/v1/domains/{config['domain']}/records/{record_type}/{name}",
-            headers={'Authorization': f"sso-key {config['api_key']}:{config['api_secret']}"},
-            json=data)
-        r.raise_for_status()
-
-    def wait_for_dns(self, hostname, desired_value, record_type):
-        for x in range(0, 50):
-
-            try:
-                answers = dns.resolver.resolve(hostname, record_type)
-                # this does not support multiple values as-written
-                dns_value = str(answers[0].target)
-                if dns_value == f'{desired_value}.':
-                    self._logger.info('%s = %s via DNS query from this system', hostname, desired_value)
-                    return
-
-                self._logger.info('%s = %s but we want %s', hostname, dns_value, desired_value)
-
-            except dns.resolver.NXDOMAIN:
-                self._logger.debug('%s does not yet exist', hostname)
-
-            time.sleep(30)
+    def load_yaml(self, path):
+        self._logger.debug('Loading %s as YAML', path)
+        with open(path, 'r') as f:
+            return yaml.safe_load(f.read())
