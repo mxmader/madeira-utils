@@ -1,8 +1,7 @@
 import json
 import os
 
-from madeira_utils import dns
-import madeira_utils
+from madeira_utils import dns, loggers
 import requests
 
 
@@ -11,7 +10,7 @@ class GoDaddyDns(object):
     api_url = "https://api.godaddy.com/v1/domains"
 
     def __init__(self, logger=None):
-        self._logger = logger if logger else madeira_utils.get_logger()
+        self._logger = logger if logger else loggers.get_logger()
         config = json.load(open(os.path.expanduser("~/.godaddy-dns.json"), 'r'))
         self._domain = config['domain']
         self._base_api_url = f"{GoDaddyDns.api_url}/{self._domain}/records"

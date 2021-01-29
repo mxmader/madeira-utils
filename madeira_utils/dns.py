@@ -2,13 +2,13 @@ import re
 import time
 
 import dns.resolver
-import madeira_utils
+from madeira_utils import loggers
 
 
 class Dns(object):
 
     def __init__(self, logger=None):
-        self._logger = logger if logger else madeira_utils.get_logger()
+        self._logger = logger if logger else loggers.get_logger()
 
     def get_short_name(self, name, domain):
         # along with the domain name, remove the leading and optionally trailing dots around the domain name
