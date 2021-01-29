@@ -2,7 +2,7 @@ import io
 import os
 import zipfile
 
-import hashing
+from madeira_utils import hashing
 import requests
 import yaml
 
