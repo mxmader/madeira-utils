@@ -7,7 +7,7 @@ verify_ssl = true
 madeira_utils = {path = ".",editable=true}
 
 [packages]
-dnspython = "*"
+madeira_utils = {path = "."}
 
 [requires]
 python_version = "3.8"

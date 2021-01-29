@@ -1,7 +1,5 @@
-.idea/
 build/
 dist/
-layers/
 *.egg-info/
 *.pyc
 __pycache__/
