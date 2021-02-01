@@ -7,3 +7,7 @@ def get_timestamp():
 
 def get_timestamp_object():
     return datetime.utcnow()
+
+
+def get_year_start(year):
+    return datetime(int(year), 1, 1, 0, 0, 0)
