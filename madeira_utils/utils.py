@@ -97,6 +97,11 @@ def get_layer_zip(layer_path):
     return in_memory_zip
 
 
+def get_cf_template_for_module(module_spec):
+    module_name = module_spec.name.split('.')[-1]
+    return get_template_body(module_name, template_dir=f"{os.path.dirname(module_spec.origin)}/cf_templates/")
+
+
 def load_yaml(path):
     with open(path, 'r') as f:
         return yaml.safe_load(f.read())
