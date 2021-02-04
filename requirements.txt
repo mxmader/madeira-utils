@@ -1,3 +1,4 @@
 dnspython
+falcon==2.0.0
 pyyaml
 requests

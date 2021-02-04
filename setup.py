@@ -28,6 +28,7 @@ setup(
     packages=find_packages(exclude=['*.tests', '*.tests.*']),
     install_requires=[
         'dnspython',
+        'falcon==2.0.0',
         'pyyaml',
         'requests'
     ]
