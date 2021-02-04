@@ -179,7 +179,7 @@ class RequestRouter(object):
 class RequestHandler(object):
 
     @staticmethod
-    def handle(api_responder, api_config, event, context, logger):
+    def handle(responder, api_config, event, context, logger):
         # Enable only in case of temporary / emergency debugging in production.
         # This will leak secrets to CloudWatch Logs!
         # logger.debug('Event: %s', event)
@@ -212,4 +212,4 @@ class RequestHandler(object):
                 logger.debug(body)
                 body = None
 
-        return api_responder.respond(function, params, body, context, logger)
+        return responder(function, params, body, context, logger)
