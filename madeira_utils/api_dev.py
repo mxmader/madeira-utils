@@ -1,5 +1,3 @@
-import importlib
-import json
 import logging
 import os
 from wsgiref import simple_server
@@ -56,12 +54,6 @@ class FalconMiddleware(object):
             resp.status
         )
 
-    def process_bad_request(self, error_message, req, resp):
-        req.context.result = {'error': error_message}
-        resp.status = falcon.HTTP_BAD_REQUEST
-        self._logger.error(error_message)
-        self.log_request(req, resp)
-
 
 class CorsPreflight(FalconMiddleware):
     """Handle CORS preflight (OPTIONS) requests."""
@@ -87,9 +79,7 @@ class FormatResponse(FalconMiddleware):
     # noinspection PyUnusedLocal
     @classmethod
     def process_request(cls, req, resp):
-        if req.content_length in (None, 0):
-            return
-        req.context.data = req.stream.read().decode('utf-8')
+        req.context.data = req.stream.read(req.content_length or 0).decode('utf-8')
 
     # noinspection PyMethodMayBeStatic, PyUnusedLocal
     def process_response(self, req, resp, resource, req_succeeded):
@@ -134,6 +124,7 @@ class RequestRouter(object):
         context.api_config = self._api_config
         params = dict(
             event=dict(
+                headers={k.title(): v for k, v in req.headers.items()},
                 requestContext=dict(
                     http=dict(
                         method=req.method,
@@ -174,42 +165,3 @@ class RequestRouter(object):
     # noinspection PyUnusedLocal
     def on_put(self, req, resp):
         self.set_response(req, resp)
-
-
-class RequestHandler(object):
-
-    @staticmethod
-    def handle(responder, api_config, event, context, logger):
-        # Enable only in case of temporary / emergency debugging in production.
-        # This will leak secrets to CloudWatch Logs!
-        # logger.debug('Event: %s', event)
-        logger = loggers.assure_logger(logger)
-
-        # absorb the API configuration into the top-level context object for convenience
-        for key, value in api_config.items():
-            setattr(context, key, value)
-
-        http_method = event['requestContext']['http']['method']
-        path = event['requestContext']['http']['path']
-        params = event.get('queryStringParameters', {})
-
-        logger.info('Processing %s %s', http_method, path)
-        module_name = f"endpoints.{path.replace('/api/', '').replace('/', '.')}"
-
-        logger.debug('Using module: %s to route request for path: %s', module_name, path)
-        module = importlib.import_module(module_name)
-        function = getattr(module, http_method.lower())
-
-        body = event.get('body')
-
-        if body:
-            try:
-                body = json.loads(body)
-
-            # if the body cannot be JSON decoded, don't pass it on
-            except json.JSONDecodeError:
-                logger.error('Could not JSON decode request body:')
-                logger.debug(body)
-                body = None
-
-        return responder(function, params, body, context, logger)
