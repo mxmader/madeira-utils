@@ -9,15 +9,17 @@ from madeira_utils import loggers, utils
 class FalconApiDev(object):
 
     def __init__(self, router_module):
-        # Initialize the logger
+        # Development API always loads with debug logging enabled!
         self._logger = loggers.get_logger(level=logging.DEBUG)
-        self._logger.info('Loading API configuration from filesystem')
-        self._api_config = utils.load_yaml('config.yaml')['test']
 
-        if not self._api_config:
+        self._logger.info('Loading API configuration from filesystem')
+        api_config = utils.load_yaml('config.yaml')
+
+        if not api_config.get('test'):
             raise RuntimeError("Could not load API configuration")
 
-        self._request_router = RequestRouter(self._api_config, router_module, self._logger)
+        self._request_router = RequestRouter(
+            api_config['test'], api_config.get('content_length_limits', {}), router_module, self._logger)
 
         self._logger.info(f'Initializing API using falcon {falcon.__version__}')
         self.api = falcon.API(middleware=[
@@ -26,11 +28,10 @@ class FalconApiDev(object):
             FormatResponse(self._logger)
         ])
 
-        self._logger.info('API Initialized')
-
-    def add_routes(self, routes):
-        for route in routes:
+        for route in api_config['routes']:
             self.api.add_route(route, self._request_router)
+
+        self._logger.info('API Initialized')
 
     def serve_wsgi(self):
         webserver_bind_address = '0.0.0.0'
@@ -114,14 +115,16 @@ class Context(object):
 # Route requests into the Lambda function code path to simulate incoming events from AWS API Gateway.
 class RequestRouter(object):
 
-    def __init__(self, api_config, router_module, logger):
+    def __init__(self, api_config, content_length_limits, router_module, logger):
         self._api_config = api_config
+        self._content_length_limits = content_length_limits
         self._logger = logger
         self._router_module = router_module
 
     def set_response(self, req, resp):
         context = Context()
         context.api_config = self._api_config
+        context.content_length_limits = self._content_length_limits
         params = dict(
             event=dict(
                 headers={k.title(): v for k, v in req.headers.items()},
