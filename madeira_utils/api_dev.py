@@ -19,7 +19,7 @@ class FalconApiDev(object):
             raise RuntimeError("Could not load API configuration")
 
         self._request_router = RequestRouter(
-            api_config['test'], api_config.get('content_length_limits', {}), router_module, self._logger)
+            api_config['test'], router_module, self._logger)
 
         self._logger.info(f'Initializing API using falcon {falcon.__version__}')
         self.api = falcon.API(middleware=[
@@ -115,16 +115,14 @@ class Context(object):
 # Route requests into the Lambda function code path to simulate incoming events from AWS API Gateway.
 class RequestRouter(object):
 
-    def __init__(self, api_config, content_length_limits, router_module, logger):
+    def __init__(self, api_config, router_module, logger):
         self._api_config = api_config
-        self._content_length_limits = content_length_limits
         self._logger = logger
         self._router_module = router_module
 
     def set_response(self, req, resp):
         context = Context()
         context.api_config = self._api_config
-        context.content_length_limits = self._content_length_limits
         params = dict(
             event=dict(
                 headers={k.title(): v for k, v in req.headers.items()},

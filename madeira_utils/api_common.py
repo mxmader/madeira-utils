@@ -5,16 +5,31 @@ from madeira import s3
 from madeira_utils import aws_lambda_responses
 
 
+def enforce_content_length_2048(func):
+    """Decorator which will return a bad request in the event of content length limit overrun."""
+    def wrapper(context, logger):
+        limit = 2048
+        content_length = context.headers.get('Content-Length', 0)
+        if context.body and (content_length > limit or len(context.body) > limit):
+            error = f"Cannot process request; content length: {content_length} exceeds limit: {limit}"
+            logger.error(error)
+            return aws_lambda_responses.get_bad_request_response(error)
+        else:
+            func(context, logger)
+
+    return wrapper
+
+
 class ApiCommon(object):
     def __init__(self, event, logger):
         self._logger = logger
         self._s3 = s3.S3()
 
         self.body = event.get('body')
-        self.content_length = int(event['headers'].get('Content-Length', 0))
         self.http_method = event['requestContext']['http']['method']
         self.params = event.get('queryStringParameters', {})
         self.path = event['requestContext']['http']['path']
+        self.headers = event['headers']
 
     def process_request(self, context):
         self._logger.info('Processing %s %s', self.http_method, self.path)  # Useful for CloudWatch logging
@@ -24,10 +39,6 @@ class ApiCommon(object):
         module = importlib.import_module(module_name)
         function = getattr(module, self.http_method.lower())
 
-        failed, response = self.enforce_content_length(context.content_length_limits)
-        if failed:
-            return response
-
         if self.body:
             try:
                 self.body = json.loads(self.body)
@@ -36,19 +47,13 @@ class ApiCommon(object):
             except json.JSONDecodeError:
                 self._logger.error('Could not JSON decode request body:')
                 self._logger.debug(self.body)
-                self.body = None
+                self.body = ''
 
-        return function(self.params, self.body, context, self._logger)
+        context.params = self.params
+        context.body = self.body
+        context.headers = self.headers
 
-    def enforce_content_length(self, manifest):
-        limit = manifest.get(f'{self.http_method} {self.path}')
-
-        if limit and self.content_length > limit:
-            error = f"Cannot process request; content length: {self.content_length} exceeds limit: {limit}"
-            self._logger.error(error)
-            return True, aws_lambda_responses.get_bad_request_response(error)
-
-        return False, None
+        return function(context, self._logger)
 
 
 class ApiS3Wrapper(object):
