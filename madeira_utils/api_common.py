@@ -15,7 +15,7 @@ def enforce_content_length_2048(func):
             logger.error(error)
             return aws_lambda_responses.get_bad_request_response(error)
         else:
-            func(context, logger)
+            return func(context, logger)
 
     return wrapper
 
