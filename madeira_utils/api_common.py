@@ -1,22 +1,60 @@
+import importlib
+import json
+
 from madeira import s3
 from madeira_utils import aws_lambda_responses
 
 
-# TODO: abstract class?
 class ApiCommon(object):
-    def __init__(self, logger):
+    def __init__(self, event, logger):
         self._logger = logger
         self._s3 = s3.S3()
 
-    def enforce_content_length(self, http_method, path, content_length, manifest):
-        limit = manifest.get(f'{http_method} {path}')
+        self.body = event.get('body')
+        self.content_length = int(event['headers'].get('Content-Length', 0))
+        self.http_method = event['requestContext']['http']['method']
+        self.params = event.get('queryStringParameters', {})
+        self.path = event['requestContext']['http']['path']
 
-        if limit and content_length > limit:
-            error = f"Cannot process request; content length: {content_length} exceeds limit: {limit}"
+    def process_request(self, context):
+        self._logger.info('Processing %s %s', self.http_method, self.path)  # Useful for CloudWatch logging
+        module_name = f"endpoints.{self.path.replace('/api/', '').replace('/', '.')}"
+
+        self._logger.debug('Using module: %s to route request for path: %s', module_name, self.path)
+        module = importlib.import_module(module_name)
+        function = getattr(module, self.http_method.lower())
+
+        failed, response = self.enforce_content_length(context.content_length_limits)
+        if failed:
+            return response
+
+        if self.body:
+            try:
+                self.body = json.loads(self.body)
+
+            # if the body cannot be JSON decoded, don't pass it on
+            except json.JSONDecodeError:
+                self._logger.error('Could not JSON decode request body:')
+                self._logger.debug(self.body)
+                self.body = None
+
+        return function(self.params, self.body, context, self._logger)
+
+    def enforce_content_length(self, manifest):
+        limit = manifest.get(f'{self.http_method} {self.path}')
+
+        if limit and self.content_length > limit:
+            error = f"Cannot process request; content length: {self.content_length} exceeds limit: {limit}"
             self._logger.error(error)
             return True, aws_lambda_responses.get_bad_request_response(error)
 
         return False, None
+
+
+class ApiS3Wrapper(object):
+    def __init__(self, logger):
+        self._logger = logger
+        self._s3 = s3.S3()
 
     def get_user_object_from_s3(self, namespace, context):
         if not context.user_hash:
