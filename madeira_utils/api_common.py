@@ -9,7 +9,7 @@ def enforce_content_length_2048(func):
     """Decorator which will return a bad request in the event of content length limit overrun."""
     def wrapper(context, logger):
         limit = 2048
-        content_length = context.headers.get('Content-Length', 0)
+        content_length = int(context.headers.get('Content-Length', 0))
         if context.body and (content_length > limit or len(context.body) > limit):
             error = f"Cannot process request; content length: {content_length} exceeds limit: {limit}"
             logger.error(error)
