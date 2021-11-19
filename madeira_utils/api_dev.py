@@ -3,7 +3,8 @@ import os
 from wsgiref import simple_server
 
 import falcon
-from madeira_utils import loggers, utils
+from madeira_utils import loggers
+from madeira_utils import utils
 
 
 class FalconApiDev(object):
@@ -22,7 +23,7 @@ class FalconApiDev(object):
             api_config['test'], router_module, self._logger)
 
         self._logger.info(f'Initializing API using falcon {falcon.__version__}')
-        self.api = falcon.API(middleware=[
+        self.api = falcon.App(middleware=[
             CorsPreflight(self._logger),
             MockDataResponse(self._logger),
             FormatResponse(self._logger)
@@ -34,10 +35,18 @@ class FalconApiDev(object):
         self._logger.info('API Initialized')
 
     def serve_wsgi(self):
-        webserver_bind_address = '0.0.0.0'
+        webserver_bind_address = '127.0.0.1'
         webserver_port = 8080
-        self._logger.debug('Launching webserver bound to %s:%s', webserver_bind_address, webserver_port)
-        httpd = simple_server.make_server(webserver_bind_address, webserver_port, self.api)
+        self._logger.debug(
+            'Launching webserver bound to %s:%s',
+            webserver_bind_address,
+            webserver_port
+        )
+        httpd = simple_server.make_server(
+            webserver_bind_address,
+            webserver_port,
+            self.api
+        )
         httpd.serve_forever()
 
 
@@ -96,13 +105,15 @@ class MockDataResponse(FalconMiddleware):
             self._logger.info('using mock data mode')
 
             body = ''
-            mock_data_file_path = f"mock_data/{req.env['REQUEST_METHOD'].lower()}{req.env['PATH_INFO']}.json"
+            mock_data_file_path = (
+                f"mock_data/{req.env['REQUEST_METHOD'].lower()}{req.env['PATH_INFO']}.json"
+            )
 
             if os.path.exists(mock_data_file_path):
                 self._logger.info('Returning data from %s', mock_data_file_path)
                 with(open(mock_data_file_path)) as f:
                     body = f.read()
-                raise falcon.http_status.HTTPStatus(falcon.HTTP_OK, body=body)
+                raise falcon.http_status.HTTPStatus(falcon.HTTP_OK, text=body)
             else:
                 self._logger.info('Mock data file: %s not found', mock_data_file_path)
                 raise falcon.http_status.HTTPStatus(falcon.HTTP_NOT_FOUND)
@@ -112,7 +123,8 @@ class Context(object):
     pass
 
 
-# Route requests into the Lambda function code path to simulate incoming events from AWS API Gateway.
+# Route requests into the Lambda function code path to simulate incoming events from AWS API
+# Gateway.
 class RequestRouter(object):
 
     def __init__(self, api_config, router_module, logger):
@@ -142,7 +154,8 @@ class RequestRouter(object):
         if req.params:
             params['event']['queryStringParameters'] = req.params
 
-        # API Gateway will omit the 'body' param in the event for HTTP methods for which it does not pertain
+        # API Gateway will omit the 'body' param in the event for HTTP methods for which it does
+        # not pertain
         if hasattr(req.context, 'data') and req.context.data:
             params['event']['body'] = req.context.data
 
