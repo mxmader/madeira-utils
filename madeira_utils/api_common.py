@@ -11,7 +11,9 @@ def enforce_content_length_2048(func):
         limit = 2048
         content_length = int(context.headers.get('Content-Length', 0))
         if context.body and (content_length > limit or len(context.body) > limit):
-            error = f"Cannot process request; content length: {content_length} exceeds limit: {limit}"
+            error = (
+                f"Cannot process request; content length: {content_length} exceeds limit: {limit}"
+            )
             logger.error(error)
             return aws_lambda_responses.get_bad_request_response(error)
         else:
@@ -32,7 +34,8 @@ class ApiCommon(object):
         self.headers = event['headers']
 
     def process_request(self, context):
-        self._logger.info('Processing %s %s', self.http_method, self.path)  # Useful for CloudWatch logging
+        # Useful for CloudWatch logging
+        self._logger.info('Processing %s %s', self.http_method, self.path)
         module_name = f"endpoints.{self.path.replace('/api/', '').replace('/', '.')}"
 
         self._logger.debug('Using module: %s to route request for path: %s', module_name, self.path)
@@ -61,18 +64,36 @@ class ApiS3Wrapper(object):
         self._logger = logger
         self._s3 = s3.S3()
 
-    def get_user_object_from_s3(self, namespace, context):
-        if not context.user_hash:
-            self._logger.debug("Cannot get object in namespace: '%s' - user hash is unknown", namespace)
-            return {}
-
+    def get_object_from_s3(self, bucket_name, object_key):
         self._s3 = s3.S3()
-        object_key = f"{namespace}/{context.user_hash}"
 
         try:
-            return self._s3.get_object_contents(context.api_persistence_bucket, object_key, is_json=True)
+            return self._s3.get_object_contents(
+                bucket_name,
+                object_key,
+                is_json=True
+            )
         except self._s3.s3_client.exceptions.NoSuchKey:
             return {}
+
+    def get_api_object_from_s3(self, object_key, context):
+        return self.get_object_from_s3(
+            context.api_persistence_bucket,
+            object_key
+        )
+
+    def get_user_object_from_s3(self, namespace, context):
+        if not context.user_hash:
+            self._logger.debug(
+                "Cannot get object in namespace: '%s' - user hash is unknown",
+                namespace
+            )
+            return {}
+
+        return self.get_object_from_s3(
+            context.api_persistence_bucket,
+            f"{namespace}/{context.user_hash}"
+        )
 
     # noinspection PyUnusedLocal
     def get_response_for_object_get(self, namespace, context):
