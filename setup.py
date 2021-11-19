@@ -22,13 +22,13 @@ setup(
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
     ],
     packages=find_packages(exclude=['*.tests', '*.tests.*']),
     install_requires=[
         'dnspython',
-        'falcon==2.0.0',
+        'falcon==3.0.1',
         'pyyaml',
         'requests'
     ]
