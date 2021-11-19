@@ -35,6 +35,11 @@ class FalconApiDev(object):
         self._logger.info('API Initialized')
 
     def serve_wsgi(self):
+        """Serve the API using the `wsgiref.simple_server` implementation.
+
+        NOTE: this does not provide an "auto reloading" function the way that more robust WSGI
+            servers (Werkzeug, gunicorn, etc) can.
+        """
         webserver_bind_address = '127.0.0.1'
         webserver_port = 8080
         self._logger.debug(
