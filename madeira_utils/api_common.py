@@ -6,7 +6,7 @@ from madeira_utils import aws_lambda_responses
 
 
 def enforce_content_length_2048(func):
-    """Decorator which will return a bad request in the event of content length limit overrun."""
+    """Decorator which will return a bad request when content length is exceeded."""
     def wrapper(context, logger):
         limit = 2048
         content_length = int(context.headers.get('Content-Length', 0))
@@ -23,6 +23,8 @@ def enforce_content_length_2048(func):
 
 
 class ApiCommon(object):
+    """API request processing abstraction layer."""
+
     def __init__(self, event, logger):
         self._logger = logger
         self._s3 = s3.S3()
@@ -34,7 +36,7 @@ class ApiCommon(object):
         self.headers = event['headers']
 
     def process_request(self, context):
-        # Useful for CloudWatch logging
+        """Process the incoming HTTP request via its context object."""
         self._logger.info('Processing %s %s', self.http_method, self.path)
         module_name = f"endpoints.{self.path.replace('/api/', '').replace('/', '.')}"
 
@@ -60,6 +62,8 @@ class ApiCommon(object):
 
 
 class ApiS3Wrapper(object):
+    """API endpoint wrapper that simply reads/writes object to AWS S3 by proxy."""
+
     def __init__(self, logger):
         self._logger = logger
         self._s3 = s3.S3()
@@ -95,18 +99,24 @@ class ApiS3Wrapper(object):
             f"{namespace}/{context.user_hash}"
         )
 
-    # noinspection PyUnusedLocal
-    def get_response_for_object_get(self, namespace, context):
+    def get_response_for_user_object_get(self, namespace, context):
         return aws_lambda_responses.get_json_response(
             self.get_user_object_from_s3(namespace, context)
         )
 
-    # noinspection PyUnusedLocal
-    def get_response_for_object_put(self, namespace, body, context):
-        self.write_user_object_to_s3(namespace, context, body)
-        return aws_lambda_responses.get_json_response({'result': f'{namespace.title()} have been updated!'})
+    def get_response_for_user_object_put(self, namespace, context):
+        self.write_user_object_to_s3(namespace, context)
+        return aws_lambda_responses.get_json_response(
+            {'result': f'{namespace.title()} have been updated!'}
+        )
 
-    def write_user_object_to_s3(self, namespace, context, body):
-        self._s3 = s3.S3()
-        object_key = f"{namespace}/{context.user_hash}"
-        return self._s3.put_object(context.api_persistence_bucket, object_key, body, as_json=True)
+    def write_object_to_s3(self, object_key, context):
+        return self._s3.put_object(
+            context.api_persistence_bucket,
+            object_key,
+            context.body,
+            as_json=True
+        )
+
+    def write_user_object_to_s3(self, namespace, context):
+        return self.write_object_to_s3(f"{namespace}/{context.user_hash}", context)

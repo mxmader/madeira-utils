@@ -86,7 +86,7 @@ class CorsPreflight(FalconMiddleware):
             if req.method == 'OPTIONS':
                 self._logger.debug('handling OPTIONS request as CORS preflight')
                 resp.status = falcon.HTTP_OK
-                raise falcon.http_status.HTTPStatus(falcon.HTTP_200, body='\n')
+                raise falcon.http_status.HTTPStatus(falcon.HTTP_200, text='\n')
 
 
 class FormatResponse(FalconMiddleware):
